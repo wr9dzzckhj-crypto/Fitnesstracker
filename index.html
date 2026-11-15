@@ -116,6 +116,8 @@ button.item:active{opacity:.55}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chips button{font:inherit;font-size:.94rem;font-weight:500;border:0;background:var(--soft);color:var(--accent);border-radius:999px;padding:9px 15px;min-height:44px;cursor:pointer}
 .chips button.on{background:var(--accent);color:var(--accent-ink)}
+.chips.seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(4.6rem,1fr));gap:6px}
+.chips.seg button{padding:9px 4px}
 .pill{display:inline-block;white-space:nowrap;font-size:.76rem;font-weight:600;border-radius:999px;padding:3px 9px;background:var(--fill);color:var(--muted)}
 .pill.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
 .pill.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
@@ -237,7 +239,7 @@ a.lnk{color:var(--accent)}
 <script src="bls.js"></script>
 <script>
 "use strict";
-const APPV='15.11.2026 · 6';
+const APPV='15.11.2026 · 7';
 /* ---------- Helfer ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -964,8 +966,11 @@ function search(q){
   hit.sort((a,b)=>sc(a)-sc(b));
   return{title:hit.length>40?'Treffer (die ersten 40 von '+hit.length+', Suche verfeinern)':'Treffer',list:[...own,...hit.slice(0,40)]};
 }
+const MEALS_S=['Frühstück','Mittag','Abend','Snacks'];
+const mealSeg=cur=>`<div class="chips seg" role="group" aria-label="Mahlzeit wählen">${MEALS_S.map((m,i)=>`<button class="${i===cur?'on':''}" data-a="meal" data-v="${i}" aria-pressed="${i===cur}">${m}</button>`).join('')}</div>`;
 function drawAdd(){
-  openSheet(`<div class="chead"><h2>${MEALS[ui.meal]}</h2><button class="navbtn" data-a="close">Abbrechen</button></div>
+  openSheet(`<div class="chead"><h2>Essen eintragen</h2><button class="navbtn" data-a="close">Abbrechen</button></div>
+  ${mealSeg(ui.meal)}
   <input id="q" type="search" placeholder="Lebensmittel suchen" data-i="q" autocomplete="off">
   <div class="chips"><button data-a="scan">Barcode scannen</button><button data-a="custom">Eigenes Lebensmittel</button></div>
   <div id="res"></div><p class="hint">Grundlebensmittel: Bundeslebensmittelschlüssel 4.0 (Max Rubner-Institut, 2025). Markenprodukte: © Open Food Facts contributors, von Nutzern gepflegt.</p>`);
@@ -981,12 +986,12 @@ function drawAmt(){const a=ui.amt,f=a.food;
   <p class="small muted num">pro 100 g: ${f0(f.k)} kcal · P ${f1(f.p)} · KH ${f1(f.c)} · F ${f1(f.f)}</p>
   <label>Menge in g oder ml<input id="amtG" inputmode="decimal" value="${fw(a.g)}" data-i="amtg"></label>
   <div class="chips">${f.pg?`<button data-a="amtset" data-g="${f.pg}">${esc(f.pn||'Portion')} (${fw(f.pg)} g)</button>`:''}<button data-a="amtset" data-g="50">50 g</button><button data-a="amtset" data-g="100">100 g</button><button data-a="amtset" data-g="200">200 g</button></div>
-  <label>Mahlzeit<select id="amtM" data-c="amtm">${MEALS.map((m,i)=>`<option value="${i}"${i===a.m?' selected':''}>${m}</option>`).join('')}</select></label>
+  <div><p class="small muted" style="margin-bottom:6px">Mahlzeit</p>${mealSeg(a.m)}</div>
   <div class="stats" id="amtP"></div>
   <div class="row"><button class="btn primary wide" data-a="amtsave">${a.ix!=null?'Speichern':'Hinzufügen'}</button>${a.ix!=null?'<button class="btn danger" data-a="amtdel">Löschen</button>':''}</div>`);
   amtPrev();
 }
-function amtPrev(){const a=ui.amt,x=tot([Object.assign({},a.food,{g:a.g||0})]);$('#amtP').innerHTML=`<div class="stat"><b class="num">${f0(x.k)}</b><span>kcal</span></div><div class="stat"><b class="num">${f1(x.p)} g</b><span>Protein</span></div><div class="stat"><b class="num">${f1(x.c)} / ${f1(x.f)}</b><span>KH / Fett in g</span></div>`}
+function amtPrev(){const a=ui.amt,x=tot([Object.assign({},a.food,{g:a.g||0})]);$('#amtP').innerHTML=`<div class="stat"><b class="num">${f0(x.k)}</b><span>kcal</span></div><div class="stat"><b class="num">${f1(x.p)} g</b><span>Protein</span></div><div class="stat"><b class="num">${f0(x.c)} / ${f0(x.f)}</b><span>KH / Fett in g</span></div>`}
 function addEntry(f,g,m,ds){const d=day(ds,1);d.e.push({n:f.n,k:f.k,p:f.p,c:f.c,f:f.f,fb:f.fb||0,g,m});saveDay(ds)}
 function drawCustom(pre){const p=pre||{},v=x=>x==null?'':String(x).replace('.',',');ui.cf={code:p.code||null};
   openSheet(`<div class="chead"><h2>${p.code?'Produkt anlegen':'Eigenes Lebensmittel'}</h2><button class="navbtn" data-a="close">Abbrechen</button></div>
@@ -1168,6 +1173,7 @@ const A={
   dtoday:()=>{ui.date=today();render()},
   water:el=>{const d=day(today(),1);d.water=Math.max(0,(d.water||0)+ +el.dataset.v);saveDay(today());render()},
   addfood:el=>{ui.meal=el.dataset.m==='auto'?autoMeal():+el.dataset.m;if(ui.tab==='heute')ui.date=today();drawAdd()},
+  meal:el=>{const v=+el.dataset.v;if(el.closest('#sheetIn').querySelector('#amtG')&&ui.amt)ui.amt.m=v;else ui.meal=v;el.parentNode.querySelectorAll('button').forEach(b=>{const on=b===el;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)})},
   backadd:()=>{if(ui.ctl){const c=ui.ctl;ui.ctl=null;c.abort()}drawAdd()},
   pickfood:el=>{const f=ui.res[+el.dataset.i];if(f.off&&!f.own){ui.off=f;return drawOff()}ui.amt={food:f,g:f.pg||100,m:ui.meal};drawAmt()},
   scan:()=>startScan(),
