@@ -1,5 +1,5 @@
 /* Fitness-Logbuch: App-Dateien offline verfügbar halten. Bei jeder Änderung der App die Versionsnummer erhöhen. */
-const CACHE = 'fitness-logbuch-v9';
+const CACHE = 'fitness-logbuch-v10';
 const SHELL = ['./', 'index.html', 'bls.js', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
 const EXTRA = [
   'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'
