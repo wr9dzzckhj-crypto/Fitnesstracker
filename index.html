@@ -237,6 +237,7 @@ a.lnk{color:var(--accent)}
 <script src="bls.js"></script>
 <script>
 "use strict";
+const APPV='15.11.2026 · 6';
 /* ---------- Helfer ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -924,7 +925,7 @@ function vProfile(){
   <label>Pause zwischen Sätzen in Sekunden<input id="pf_rest" inputmode="numeric" value="${st.rest}" data-c="pf" data-k="rest"></label></section>`;
   const lb=st.lastBackup,old=!lb||dn(today())-dn(lb)>14;
   h+=`<section class="card"><div class="chead"><h3>Daten</h3>${old?'<span class="pill warn">Sicherung fällig</span>':''}</div><p class="small muted">Alle Einträge liegen nur auf diesem Gerät. Wird die App vom Home-Bildschirm gelöscht oder der Website-Speicher geleert, sind sie weg. Letzte Sicherung: ${lb?dlabel(lb):'noch keine'}.</p><div class="row"><button class="btn primary wide" data-a="backup">Sicherung speichern</button><button class="btn wide" data-a="restore">Sicherung einspielen</button></div>
-  <p class="hint">Grundlebensmittel: Max Rubner-Institut (2025): Bundeslebensmittelschlüssel (BLS), Version 4.0. Karlsruhe. Markenprodukte: © Open Food Facts contributors, Open Database License. Muskelschaubild: react-native-body-highlighter, © 2022 ELABBASSI Hicham, MIT License.</p></section>`;
+  <p class="hint">Grundlebensmittel: Max Rubner-Institut (2025): Bundeslebensmittelschlüssel (BLS), Version 4.0. Karlsruhe. Markenprodukte: © Open Food Facts contributors, Open Database License. Muskelschaubild: react-native-body-highlighter, © 2022 ELABBASSI Hicham, MIT License.</p><p class="hint num">App-Version ${APPV}</p></section>`;
   return h;
 }
 const VIEWS={heute:['Heute',vHeute],ernaehrung:['Ernährung',vFood],training:['Training',vTraining],fortschritt:['Fortschritt',vProgress],profil:['Profil',vProfile]};
