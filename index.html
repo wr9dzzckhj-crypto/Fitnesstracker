@@ -217,6 +217,18 @@ th:first-child,td:first-child{text-align:left}
 .opt b{font-weight:600}
 .opt span{font-size:.82rem;color:var(--muted)}
 input[type=date]{min-width:0}
+.xa{position:relative;display:block;flex:none;aspect-ratio:1;border-radius:12px;overflow:hidden;background:#d9edf8}
+.xa img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.xa .pk{animation:xa 2.8s ease-in-out infinite}
+.xa.still .pk{display:none}
+@keyframes xa{0%,36%{opacity:0}50%,86%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.xa .pk{animation:none;opacity:0}}
+@media (prefers-color-scheme:dark){.xa img{filter:brightness(.86)}}
+.xa.xs{width:3.3rem;border-radius:9px}.xa.sm{width:5.6rem}.xa.md{width:7.2rem}.xa.lg{width:min(100%,17rem);margin:0 auto;border-radius:16px}
+.xa.none{background:var(--fill);display:flex;align-items:center;padding:4px}
+.xa.none .bm{width:100%}
+.xabtn{border:0;background:none;padding:0;cursor:pointer;border-radius:12px;flex:none}
+.steps{margin:6px 0 0;padding-left:1.3rem;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:5px}
 .warnT{color:var(--warn)}
 a.lnk{color:var(--accent)}
 .hide{display:none!important}
@@ -237,9 +249,10 @@ a.lnk{color:var(--accent)}
 <div id="toast" role="status"></div>
 <input type="file" id="fRestore" accept="application/json,.json" class="hide">
 <script src="bls.js"></script>
+<script src="exdb.js"></script>
 <script>
 "use strict";
-const APPV='15.11.2026 · 10';
+const APPV='15.11.2026 · 11';
 /* ---------- Helfer ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -491,6 +504,9 @@ const GMUS={'Brust':['chest'],'Rücken':['lats','traps'],'Schultern':['delt','rd
 const musOf=n=>EXM[n]||{p:GMUS[groupOf(n)]||[],s:[],cue:''};
 function exLevels(names){const lv={};names.forEach(n=>{const m=musOf(n);m.s.forEach(k=>{if(!lv[k])lv[k]=.38});m.p.forEach(k=>lv[k]=1)});return lv}
 const musNames=a=>a.map(k=>MUS[k]).join(', ');
+/* Übungsbilder, Schritte und zusätzliche Übungen aus exdb.js (RepDB). [Name, Bild-ID, Gruppe, Zielmuskeln, Hilfsmuskeln, Gerät, Schritte, animiert, Tipps] */
+const XDB={};(window.EXDB||[]).forEach(r=>{XDB[r[0]]={id:r[1],eq:r[5]||'',st:r[6]?r[6].split('|'):[],an:r[7],tp:r[8]?r[8].split('|'):[]};
+  if(r[2]&&EX[r[2]]&&!EXM[r[0]]){EX[r[2]].push(r[0]);EXM[r[0]]={p:r[3].split(' ').filter(Boolean),s:r[4]?r[4].split(' '):[],cue:''}}});
 
 /* ---------- Zustand ---------- */
 const DEF=()=>({v:1,profile:null,goal:{type:'keep',rate:0.5},prot:null,trainDays:[],cycle:false,rest:120,targets:null,tHist:[],actAdj:true});
@@ -844,6 +860,29 @@ function vFood(){
   else h+=`<p class="small muted">Noch keine Einträge in dieser Woche.</p>`;
   return h+`</section>`;
 }
+/* ---------- Übungsbilder und Tauschen ---------- */
+function exAnim(n,cls){const x=XDB[n];
+  if(!x)return`<span class="xa none ${cls||''}" aria-hidden="true">${bodyMap(exLevels([n]),'')}</span>`;
+  return`<span class="xa ${cls||''}" aria-hidden="true"><img src="ex/${x.id}-${x.an?'start':'main'}.webp" alt="" loading="lazy" decoding="async">${x.an?`<img class="pk" src="ex/${x.id}-peak.webp" alt="" loading="lazy" decoding="async">`:''}</span>`}
+const eqOf=n=>XDB[n]?XDB[n].eq:'';
+/* Alternativen: zuerst gleicher Zielmuskel, dann Übungen, die ihn mittrainieren, dann dieselbe Muskelgruppe */
+function swapCands(n,exclude){
+  const m=musOf(n),g=groupOf(n),p0=m.p[0],out=[];
+  new Set([].concat(...GROUPS.map(G=>EX[G]),S.plans.ex.map(e=>e.n))).forEach(c=>{
+    if(c===n||exclude.includes(c))return;const cm=musOf(c);
+    const tier=p0&&cm.p[0]===p0?0:m.p.some(k=>cm.p.includes(k))?1:groupOf(c)===g?2:9;
+    if(tier<9)out.push({n:c,tier,eq:eqOf(c)===eqOf(n)?0:1})});
+  return out.sort((a,b)=>a.tier-b.tier||a.eq-b.eq||a.n.localeCompare(b.n,'de'));
+}
+function drawSwap(){const s=ui.sw,c=s.c=swapCands(s.n,s.ex).slice(0,45),T=['Gleicher Zielmuskel','Trainiert den Zielmuskel mit','Gleiche Muskelgruppe'];let h='',last=-1;
+  c.forEach((x,i)=>{if(x.tier!==last){if(last>=0)h+='</div>';h+=`<p class="small muted">${T[x.tier]}</p><div class="list">`;last=x.tier}
+    h+=`<button class="item" data-a="swapgo" data-i="${i}">${exAnim(x.n,'xs still')}<span class="t"><b>${esc(x.n)}</b><span>${esc(musNames(musOf(x.n).p))}${eqOf(x.n)?' · '+esc(eqOf(x.n)):''}</span></span></button>`});
+  if(last>=0)h+='</div>';
+  openSheet(`<div class="chead"><h2>Übung tauschen</h2><button class="navbtn" data-a="${s.ctx==='plan'?'swapback':'close'}">${s.ctx==='plan'?'Zurück':'Abbrechen'}</button></div>
+  <div class="exh">${exAnim(s.n,'sm')}<div class="exm"><h3>${esc(s.n)}</h3><p class="tm">${esc(musNames(musOf(s.n).p))}</p><p class="small muted">${eqOf(s.n)?esc(eqOf(s.n))+' · ':''}wird ersetzt durch:</p></div></div>
+  ${s.ctx==='workout'&&s.meso?`<label class="check"><input type="checkbox" id="swPlan" checked>Auch im Plan für die nächsten Wochen ersetzen</label>`:''}
+  ${h||'<p class="small muted">Keine passende Alternative gefunden.</p>'}`)}
+
 function mesoCard(){
   const m=meso();
   if(!m)return`<section class="card"><div class="chead"><h2>Mesozyklus</h2></div><p class="small muted">Plane mehrere Wochen am Stück: feste Trainingstage, 8–12 Wiederholungen, anfangs 2 Wiederholungen in Reserve und zum Ende hin bis ans Limit. Der Generator fragt Erfahrung, Tage und Zeit ab und baut daraus einen Plan, den du frei ändern kannst.</p><button class="btn primary" data-a="gen">Trainingsplan erstellen</button><button class="btn" data-a="tinfo">So wird gerechnet</button></section>`;
@@ -864,17 +903,23 @@ function workoutHead(aw,focus){
 }
 function vList(aw){
   const t=targetRir(aw);let h=workoutHead(aw,false);
-  aw.ex.forEach((x,xi)=>{const mu=musOf(x.n),p0=setRx(aw,x,Math.max(0,x.sets.findIndex(z=>!z.ok)));
-    h+=`<section class="card"><div class="exh"><button class="bmbtn" data-a="exinfo" data-n="${esc(x.n)}" aria-label="${esc(x.n)}: Muskeln und Ausführung ansehen">${bodyMap(exLevels([x.n]),'sm')}</button><div class="exm"><h3>${esc(x.n)}</h3><p class="tm">${esc(musNames(mu.p))}</p><p class="small muted num">${x.min}–${x.max} Wdh. · RIR ${t}</p></div><button class="icon" data-a="exdel" data-x="${xi}" aria-label="Übung entfernen">×</button></div><p class="hint">${esc(rxWhy(p0,x,t))}</p>`;
-    x.sets.forEach((z,si)=>{const p=setRx(aw,x,si),rv=z.rir==null?t:z.rir;
-      h+=`<div class="set${z.ok?' ok':''}"><span class="sn">${si+1}</span><input id="w${xi}_${si}" inputmode="decimal" aria-label="Gewicht in kg" placeholder="${p.w==null?'kg':fw(p.w)}" value="${z.w==null?'':fw(z.w)}" data-i="setv" data-x="${xi}" data-s="${si}" data-k="w"><span class="muted small">×</span><input id="r${xi}_${si}" inputmode="numeric" aria-label="Wiederholungen" placeholder="${p.r}" value="${z.r==null?'':z.r}" data-i="setv" data-x="${xi}" data-s="${si}" data-k="r"><select class="rs" id="q${xi}_${si}" aria-label="Wiederholungen in Reserve" data-c="setrir" data-x="${xi}" data-s="${si}">${[0,1,2,3,4].map(v=>`<option value="${v}"${v===rv?' selected':''}>R${v}</option>`).join('')}</select><button class="chk" data-a="setok" data-x="${xi}" data-s="${si}" aria-label="Satz ${si+1} ${z.ok?'zurücknehmen':'abhaken'}">✓</button></div>`});
-    h+=`<div class="row"><button class="btn" data-a="setadd" data-x="${xi}">+ Satz</button><button class="btn" data-a="setrem" data-x="${xi}" ${x.sets.length>1?'':'disabled'}>− Satz</button><button class="btn" data-a="focuson" data-x="${xi}">Im Trainingsmodus</button></div></section>`});
-  return h+`<section class="card"><p class="hint">Spalten: Gewicht in kg, Wiederholungen, Reserve (R2 = 2 wären noch gegangen). Leere Felder übernehmen die Vorgabe.</p><button class="btn" data-a="exadd">Übung hinzufügen</button><button class="btn primary" data-a="wfinish">Training beenden</button><button class="btn danger" data-a="wdiscard">Training verwerfen</button></section>`;
+  if(ui.openW!==aw.id){ui.openW=aw.id;ui.open=aw.ex.findIndex(x=>x.sets.some(z=>!z.ok))}
+  aw.ex.forEach((x,xi)=>{const mu=musOf(x.n),done=x.sets.filter(z=>z.ok).length,fin=done===x.sets.length,si=x.sets.findIndex(z=>!z.ok),pn=si>=0?setRx(aw,x,si):null,open=ui.open===xi;
+    h+=`<section class="card"><div class="exh"><button class="xabtn" data-a="exinfo" data-n="${esc(x.n)}" aria-label="${esc(x.n)}: Ausführung und Muskeln ansehen">${exAnim(x.n,'sm')}</button><div class="exm"><h3>${esc(x.n)}</h3><p class="tm">${esc(musNames(mu.p))}</p><p class="small muted num">${fin?'Alle '+x.sets.length+' Sätze erledigt':done+' von '+x.sets.length+' Sätzen · '+x.min+'–'+x.max+' Wdh.'}</p><div class="dots" style="justify-content:flex-start">${x.sets.map((z,i)=>`<i class="${z.ok?'d':i===si?'c':''}"></i>`).join('')}</div></div></div>
+    ${pn?`<p class="small num"><b>Nächster Satz: ${rxLine(pn)}</b><span class="muted"> · RIR ${t}</span></p>`:''}
+    <div class="row"><button class="btn wide${open||fin?'':' primary'}" data-a="xopen" data-x="${xi}" aria-expanded="${open}">${open?'Sätze ausblenden':fin?'Sätze ansehen':'Sätze eintragen'}</button><button class="btn" data-a="swap" data-x="${xi}">Tauschen</button></div>`;
+    if(open){
+      if(pn)h+=`<p class="hint">${esc(rxWhy(pn,x,t))}</p>`;
+      x.sets.forEach((z,i)=>{const p=setRx(aw,x,i),rv=z.rir==null?t:z.rir;
+        h+=`<div class="set${z.ok?' ok':''}"><span class="sn">${i+1}</span><input id="w${xi}_${i}" inputmode="decimal" aria-label="Gewicht in kg" placeholder="${p.w==null?'kg':fw(p.w)}" value="${z.w==null?'':fw(z.w)}" data-i="setv" data-x="${xi}" data-s="${i}" data-k="w"><span class="muted small">×</span><input id="r${xi}_${i}" inputmode="numeric" aria-label="Wiederholungen" placeholder="${p.r}" value="${z.r==null?'':z.r}" data-i="setv" data-x="${xi}" data-s="${i}" data-k="r"><select class="rs" id="q${xi}_${i}" aria-label="Wiederholungen in Reserve" data-c="setrir" data-x="${xi}" data-s="${i}">${[0,1,2,3,4].map(v=>`<option value="${v}"${v===rv?' selected':''}>R${v}</option>`).join('')}</select><button class="chk" data-a="setok" data-x="${xi}" data-s="${i}" aria-label="Satz ${i+1} ${z.ok?'zurücknehmen':'abhaken'}">✓</button></div>`});
+      h+=`<p class="hint">Gewicht in kg, Wiederholungen, Reserve (R2 = 2 wären noch gegangen). Leere Felder übernehmen die Vorgabe.</p><div class="row"><button class="btn" data-a="setadd" data-x="${xi}">+ Satz</button><button class="btn" data-a="setrem" data-x="${xi}" ${x.sets.length>1?'':'disabled'}>− Satz</button><button class="btn" data-a="focuson" data-x="${xi}">Trainingsmodus</button><button class="btn danger" data-a="exdel" data-x="${xi}">Entfernen</button></div>`}
+    h+=`</section>`});
+  return h+`<section class="card"><button class="btn" data-a="exadd">Übung hinzufügen</button><button class="btn primary" data-a="wfinish">Training beenden</button><button class="btn danger" data-a="wdiscard">Training verwerfen</button></section>`;
 }
 function vFocus(aw){
   const n=aw.ex.length,xi=clamp(ui.fx||0,0,n-1),x=aw.ex[xi],t=targetRir(aw),mu=musOf(x.n),si=x.sets.findIndex(z=>!z.ok),done=x.sets.filter(z=>z.ok).length;ui.fx=xi;
   let h=`<section class="card fcs"><div class="chead"><span class="pill">Übung ${xi+1} von ${n}</span><span class="num muted" style="flex:1"><span id="wtime"></span></span><button class="navbtn" data-a="focusoff">Übersicht</button></div>
-  <div class="exh"><button class="bmbtn" data-a="exinfo" data-n="${esc(x.n)}" aria-label="${esc(x.n)}: Muskeln und Ausführung ansehen">${bodyMap(exLevels([x.n]),'sm')}</button><div class="exm"><h2>${esc(x.n)}</h2><p class="tm">${esc(musNames(mu.p))}</p><p class="small muted">Tipp aufs Schaubild für Details</p></div></div>
+  <div class="exh"><button class="xabtn" data-a="exinfo" data-n="${esc(x.n)}" aria-label="${esc(x.n)}: Ausführung und Muskeln ansehen">${exAnim(x.n,'md')}</button><div class="exm"><h2>${esc(x.n)}</h2><p class="tm">${esc(musNames(mu.p))}</p><p class="small muted">Tipp aufs Bild für Ausführung und Muskeln</p></div></div>
   <div class="dots" aria-label="${done} von ${x.sets.length} Sätzen erledigt">${x.sets.map((z,i)=>`<i class="${z.ok?'d':i===si?'c':''}"></i>`).join('')}</div>`;
   if(si<0){
     h+=`<div class="rxbox"><span class="small muted">Alle ${x.sets.length} Sätze erledigt</span><b class="rxv">${xi<n-1?'Weiter zur nächsten Übung':'Letzte Übung geschafft'}</b></div>`;
@@ -889,7 +934,7 @@ function vFocus(aw){
     <button class="btn primary big" data-a="fdone">Satz abschließen</button>`;
   }
   if(done)h+=`<div class="list">`+x.sets.map((z,i)=>z.ok?`<div class="item" style="cursor:default"><span class="t"><b class="num">Satz ${i+1}: ${z.w>0?fw(z.w)+' kg × ':''}${z.r}${z.w>0?'':' Wdh.'}</b><span class="num">RIR ${z.rir==null?'–':z.rir}${z.rir!=null&&z.rir!==t?' · Ziel '+t:''}</span></span><button class="btn" data-a="fundo" data-s="${i}">Ändern</button></div>`:'').join('')+`</div>`;
-  h+=`<div class="row"><button class="btn" data-a="setadd" data-x="${xi}">+ Satz</button><button class="btn" data-a="setrem" data-x="${xi}" ${x.sets.length>1&&!x.sets[x.sets.length-1].ok?'':'disabled'}>− Satz</button></div></section>`;
+  h+=`<div class="row"><button class="btn" data-a="setadd" data-x="${xi}">+ Satz</button><button class="btn" data-a="setrem" data-x="${xi}" ${x.sets.length>1&&!x.sets[x.sets.length-1].ok?'':'disabled'}>− Satz</button><button class="btn" data-a="swap" data-x="${xi}" ${done<x.sets.length?'':'disabled'}>Tauschen</button></div></section>`;
   h+=`<section class="card"><div class="row"><button class="btn wide" data-a="fnav" data-d="-1" ${xi>0?'':'disabled'}>‹ Zurück</button>${xi<n-1?`<button class="btn wide${si<0?' primary':''}" data-a="fnav" data-d="1">Weiter ›</button>`:`<button class="btn wide${si<0?' primary':''}" data-a="wfinish">Training beenden</button>`}</div>${xi<n-1?`<p class="hint">Danach: ${esc(aw.ex[xi+1].n)}</p>`:''}</section>`;
   return h;
 }
@@ -974,7 +1019,7 @@ function vProfile(){
   <label>Pause zwischen Sätzen in Sekunden<input id="pf_rest" inputmode="numeric" value="${st.rest}" data-c="pf" data-k="rest"></label></section>`;
   const lb=st.lastBackup,old=!lb||dn(today())-dn(lb)>14;
   h+=`<section class="card"><div class="chead"><h3>Daten</h3>${old?'<span class="pill warn">Sicherung fällig</span>':''}</div><p class="small muted">Alle Einträge liegen nur auf diesem Gerät. Wird die App vom Home-Bildschirm gelöscht oder der Website-Speicher geleert, sind sie weg. Letzte Sicherung: ${lb?dlabel(lb):'noch keine'}.</p><div class="row"><button class="btn primary wide" data-a="backup">Sicherung speichern</button><button class="btn wide" data-a="restore">Sicherung einspielen</button></div>
-  <p class="hint">Grundlebensmittel: Max Rubner-Institut (2025): Bundeslebensmittelschlüssel (BLS), Version 4.0. Karlsruhe. Markenprodukte: © Open Food Facts contributors, Open Database License. Muskelschaubild: react-native-body-highlighter, © 2022 ELABBASSI Hicham, MIT License.</p><p class="hint num">App-Version ${APPV}</p></section>`;
+  <p class="hint">Grundlebensmittel: Max Rubner-Institut (2025): Bundeslebensmittelschlüssel (BLS), Version 4.0. Karlsruhe. Markenprodukte: © Open Food Facts contributors, Open Database License. Muskelschaubild: react-native-body-highlighter, © 2022 ELABBASSI Hicham, MIT License. Übungsbilder und Ausführungstexte: Exercise data by <a class="lnk" href="https://repdb.co" target="_blank" rel="noopener nofollow">RepDB (repdb.co)</a>.</p><p class="hint num">App-Version ${APPV}</p></section>`;
   return h;
 }
 const VIEWS={heute:['Heute',vHeute],ernaehrung:['Ernährung',vFood],training:['Training',vTraining],fortschritt:['Fortschritt',vProgress],profil:['Profil',vProfile]};
@@ -1120,7 +1165,7 @@ const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const keepS=fn=>{const p=$('#sheet .panel'),s=p.scrollTop;fn();p.scrollTop=s};
 function finishSet(w,x,z,wv,rv,rir){
   const t=targetRir(w),best=bestE(x.n,w.id),mine=Math.max(0,...x.sets.filter(q=>q.ok).map(e1z));
-  z.w=wv;z.r=rv;z.rir=rir;z.ok=true;saveW(w);restEnd=Date.now()+(S.settings.rest||120)*1000;ui.fsk=null;render();
+  z.w=wv;z.r=rv;z.rir=rir;z.ok=true;if(!ui.focus&&x.sets.every(q=>q.ok))ui.open=w.ex.findIndex(q=>q.sets.some(k=>!k.ok));saveW(w);restEnd=Date.now()+(S.settings.rest||120)*1000;ui.fsk=null;render();
   const e=e1z(z);
   if(best>0&&e>best*1.005&&e>mine)toast('Neue Bestleistung bei '+x.n);
   else if(rir<=t-2)toast('Schwerer als geplant. Der nächste Satz wird leichter angesetzt.');
@@ -1151,7 +1196,7 @@ function drawPlan(){const p=ui.pe,day=p.kind==='day';
   openSheet(`<div class="chead"><h2>${day?'Trainingstag':p.idx==null?'Neuer Plan':'Plan bearbeiten'}</h2><button class="navbtn" data-a="pecancel">${day?'Zurück':'Abbrechen'}</button></div>
   <label>Name<input id="peName" value="${esc(p.name)}" data-i="pename" placeholder="z. B. Oberkörper A"></label>
   ${day?`<label>Wochentag<select id="peWd" data-c="pewd">${WD.map((w,i)=>`<option value="${i}"${i===p.wd?' selected':''}>${w}</option>`).join('')}</select></label>`:''}
-  ${p.ex.map((x,i)=>`<div class="card" style="gap:8px"><div class="chead"><h3>${esc(x.n)}</h3><button class="icon" data-a="peup" data-x="${i}" aria-label="Nach oben" ${i?'':'disabled'}>↑</button><button class="icon" data-a="pedel" data-x="${i}" aria-label="Entfernen">×</button></div><div class="row"><label style="flex:1">Sätze<input id="pe_s${i}" inputmode="numeric" value="${x.sets}" data-i="pef" data-x="${i}" data-k="sets"></label><label style="flex:1">Wdh. von<input id="pe_a${i}" inputmode="numeric" value="${x.min}" data-i="pef" data-x="${i}" data-k="min"></label><label style="flex:1">bis<input id="pe_b${i}" inputmode="numeric" value="${x.max}" data-i="pef" data-x="${i}" data-k="max"></label></div></div>`).join('')}
+  ${p.ex.map((x,i)=>`<div class="card" style="gap:8px"><div class="chead" style="flex-wrap:nowrap">${exAnim(x.n,'xs still')}<h3>${esc(x.n)}</h3><button class="icon" data-a="peup" data-x="${i}" aria-label="Nach oben" ${i?'':'disabled'}>↑</button><button class="icon" data-a="pedel" data-x="${i}" aria-label="Entfernen">×</button></div><div class="row"><label style="flex:1">Sätze<input id="pe_s${i}" inputmode="numeric" value="${x.sets}" data-i="pef" data-x="${i}" data-k="sets"></label><label style="flex:1">Wdh. von<input id="pe_a${i}" inputmode="numeric" value="${x.min}" data-i="pef" data-x="${i}" data-k="min"></label><label style="flex:1">bis<input id="pe_b${i}" inputmode="numeric" value="${x.max}" data-i="pef" data-x="${i}" data-k="max"></label></div><button class="btn" data-a="peswap" data-x="${i}">Tauschen</button></div>`).join('')}
   ${exPicker('peadd')}
   <div class="row"><button class="btn primary wide" data-a="pesave">${day?'Tag übernehmen':'Plan speichern'}</button>${p.idx!=null?`<button class="btn danger" data-a="pedelplan">${day?'Tag entfernen':'Plan löschen'}</button>`:''}</div>`)}
 function volTable(days){const v=planVolume(days),keys=Object.keys(MUS).filter(k=>v[k]);
@@ -1285,13 +1330,27 @@ const A={
   fundo:el=>{const w=activeW(),x=w.ex[ui.fx];x.sets.forEach((z,i)=>{if(i>=+el.dataset.s)z.ok=false});ui.fsk=null;saveW(w);render()},
   exadd:()=>openSheet(`<div class="chead"><h2>Übung hinzufügen</h2><button class="navbtn" data-a="close">Abbrechen</button></div>${exPicker('exaddgo')}`),
   exaddgo:el=>{const n=pickedEx(el.dataset.src);if(!n)return;const w=activeW();w.ex.push({n,min:8,max:12,sets:[0,1,2].map(()=>({w:null,r:null,ok:false}))});ui.fx=w.ex.length-1;ui.fsk=null;saveW(w);closeSheet();render()},
-  exinfo:el=>{const n=el.dataset.n,mu=musOf(n),l=lastPerf(n,(activeW()||{}).id),b=bestE(n,null);
+  exinfo:el=>{const n=el.dataset.n,mu=musOf(n),x=XDB[n],l=lastPerf(n,(activeW()||{}).id),b=bestE(n,null);
     openSheet(`<div class="chead"><h2>${esc(n)}</h2><button class="navbtn" data-a="close">Fertig</button></div>
+    ${x?exAnim(n,'lg'):''}
+    ${x&&x.eq?`<p class="small muted" style="text-align:center">${esc(x.eq)}</p>`:''}
     <div class="mapbox">${bodyMap(exLevels([n]),'lg pulse')}</div>
     <div class="lg2"><div><i></i><span><b>Zielmuskeln:</b> ${esc(musNames(mu.p))||'nicht hinterlegt'}</span></div>${mu.s.length?`<div><i class="s"></i><span><b>Unterstützend:</b> ${esc(musNames(mu.s))}</span></div>`:''}</div>
-    ${mu.cue?`<div><h3>Ausführung</h3><p class="small muted" style="margin-top:4px">${esc(mu.cue)}</p></div>`:''}
+    ${x&&x.st.length?`<div><h3>Ausführung</h3><ol class="steps">${x.st.map(s=>`<li>${esc(s)}</li>`).join('')}</ol></div>`:mu.cue?`<div><h3>Ausführung</h3><p class="small muted" style="margin-top:4px">${esc(mu.cue)}</p></div>`:''}
+    ${x&&x.tp.length?`<div><h3>Tipps</h3><ul class="steps">${x.tp.map(s=>`<li>${esc(s)}</li>`).join('')}</ul></div>`:''}
     <div class="stats"><div class="stat"><b class="num">${l?l.sets.map(z=>fw(z.w||0)+'×'+z.r).join(' '):'–'}</b><span>${l?'zuletzt am '+dshort(l.d):'noch kein Eintrag'}</span></div><div class="stat"><b class="num">${b?f1(b)+' kg':'–'}</b><span>geschätztes Maximum</span></div></div>`)},
-  exdel:el=>{const w=activeW();w.ex.splice(+el.dataset.x,1);ui.fx=0;ui.fsk=null;saveW(w);render()},
+  xopen:el=>{const i=+el.dataset.x;ui.open=ui.open===i?-1:i;render()},
+  swap:el=>{const w=activeW(),xi=+el.dataset.x,x=w.ex[xi],m=meso();if(x.sets.every(z=>z.ok))return toast('Alle Sätze dieser Übung sind schon erledigt.');ui.sw={ctx:'workout',xi,n:x.n,ex:w.ex.map(e=>e.n),meso:!!(w.ms&&m&&m.id===w.ms.id)};drawSwap()},
+  peswap:el=>{const i=+el.dataset.x;ui.sw={ctx:'plan',xi:i,n:ui.pe.ex[i].n,ex:ui.pe.ex.map(e=>e.n)};drawSwap()},
+  swapback:()=>drawPlan(),
+  swapgo:el=>{const s=ui.sw,nn=s.c[+el.dataset.i].n;
+    if(s.ctx==='plan'){ui.pe.ex[s.xi].n=nn;return drawPlan()}
+    const w=activeW(),x=w.ex[s.xi],done=x.sets.filter(z=>z.ok),rest=x.sets.length-done.length,plan=$('#swPlan')&&$('#swPlan').checked;
+    if(done.length){x.sets=done;w.ex.splice(s.xi+1,0,{n:nn,min:x.min,max:x.max,sets:Array.from({length:rest},()=>({w:null,r:null,ok:false}))});ui.fx=s.xi+1;ui.open=s.xi+1}
+    else{x.n=nn;x.sets.forEach(z=>{z.w=null;z.r=null;delete z.rir});ui.open=s.xi}
+    if(plan){const m=meso(),d=m.days.find(q=>q.id===w.ms.d),px=d&&d.ex.find(q=>q.n===s.n);if(px&&!d.ex.some(q=>q.n===nn)){px.n=nn;Store.save('plans')}}
+    ui.fsk=null;saveW(w);closeSheet();render();toast(nn+' statt '+s.n)},
+  exdel:el=>{const w=activeW(),i=+el.dataset.x;confirmSheet('Übung entfernen','„'+w.ex[i].n+'“ wird aus diesem Training entfernt, eingetragene Sätze gehen verloren.','Entfernen',()=>{w.ex.splice(i,1);ui.fx=0;ui.open=-1;ui.fsk=null;saveW(w);render()})},
   setadd:el=>{const w=activeW();w.ex[+el.dataset.x].sets.push({w:null,r:null,ok:false});ui.fsk=null;saveW(w);render()},
   setrem:el=>{const w=activeW(),s=w.ex[+el.dataset.x].sets;if(s.length>1)s.pop();ui.fsk=null;saveW(w);render()},
   setok:el=>{const w=activeW(),xi=+el.dataset.x,si=+el.dataset.s,x=w.ex[xi],z=x.sets[si];
