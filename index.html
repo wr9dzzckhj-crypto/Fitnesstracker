@@ -239,7 +239,7 @@ a.lnk{color:var(--accent)}
 <script src="bls.js"></script>
 <script>
 "use strict";
-const APPV='15.11.2026 · 8';
+const APPV='15.11.2026 · 9';
 /* ---------- Helfer ---------- */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -683,7 +683,8 @@ function startW(p){
 const LVL={beg:['Einsteiger','Weniger als ein Jahr regelmäßiges Krafttraining',8],mid:['Fortgeschritten','Ein bis drei Jahre Training',12],adv:['Erfahren','Mehr als drei Jahre, Fortschritt wird zäh',16]};
 const GF={'Beine':1.3,'Brust':1,'Rücken':1.15,'Schultern':.6,'Gesäß':.4,'Arme':.7,'Rumpf':.4};
 const DT={GK:['Ganzkörper',['Beine','Brust','Rücken','Schultern','Gesäß','Arme','Rumpf'],{}],OK:['Oberkörper',['Brust','Rücken','Schultern','Arme'],{}],UK:['Unterkörper',['Beine','Gesäß','Rumpf'],{}],
-  PU:['Push',['Brust','Schultern','Arme'],{'Schultern':'delt','Arme':'triceps'}],PL:['Pull',['Rücken','Schultern','Arme'],{'Schultern':'rdelt','Arme':'biceps'}],BE:['Beine',['Beine','Gesäß','Rumpf'],{}]};
+  PU:['Push',['Brust','Schultern','Arme'],{'Schultern':'delt','Arme':'triceps'}],PL:['Pull',['Rücken','Schultern','Arme'],{'Schultern':'rdelt','Arme':'biceps'}],BE:['Beine',['Beine','Gesäß','Rumpf'],{}],
+  PQ:['Push',['Brust','Beine','Schultern','Arme','Rumpf'],{'Schultern':'delt','Arme':'triceps','Beine':'quads'}],PH:['Pull',['Rücken','Beine','Gesäß','Schultern','Arme'],{'Schultern':'rdelt','Arme':'biceps','Beine':'hams'}]};
 const SPLIT={2:['GK','GK'],3:['GK','GK','GK'],4:['OK','UK','OK','UK'],5:['OK','UK','PU','PL','BE'],6:['PU','PL','BE','PU','PL','BE']};
 const POOL={gym:{
   'Brust':[['Bankdrücken','Kurzhantel-Schrägbankdrücken','Brustpresse (Maschine)'],['Kabel-Flys','Dips','Kurzhantel-Bankdrücken'],['Dips','Kabel-Flys','Kurzhantel-Schrägbankdrücken']],
@@ -704,7 +705,7 @@ const POOL={gym:{
 const setCap=min=>clamp(Math.floor((min-8)*60/((S.settings.rest||120)+50)),5,26);
 const estMin=sets=>Math.round(8+sets*((S.settings.rest||120)+50)/60);
 function genMeso(c){
-  const wds=c.wds.slice().sort((a,b)=>a-b),types=SPLIT[clamp(wds.length,2,6)],cap=setCap(c.minutes),notes=[],base=LVL[c.level][2];
+  const wds=c.wds.slice().sort((a,b)=>a-b),types=wds.length===3&&c.split3==='ppg'?['PQ','PH','GK']:SPLIT[clamp(wds.length,2,6)],cap=setCap(c.minutes),notes=[],base=LVL[c.level][2];
   const occ={};GROUPS.forEach(g=>occ[g]=[]);types.forEach((t,i)=>DT[t][1].forEach(g=>occ[g].push(i)));
   let T={};GROUPS.forEach(g=>T[g]=occ[g].length?Math.min(22,Math.round(base*GF[g])+(c.focus.includes(g)?Math.round(4*Math.max(.75,GF[g])):0)):0);
   const per=types.map(()=>({}));
@@ -716,7 +717,7 @@ function genMeso(c){
     const[nm,gs,flt]=DT[t],kn=names[di]-1,used=[],ex=[];
     gs.forEach(g=>{const s=per[di][g]||0,k=occ[g].indexOf(di);if(s<2)return;
       const slots=POOL[c.equip][g],ok=n=>!used.includes(n)&&!c.avoid.includes(n)&&(!flt[g]||musOf(n).p.includes(flt[g]));
-      const nEx=g==='Beine'?(s<=3?1:s<=8?2:s<=11?3:4):(s<=4?1:s<=7?2:3);
+      const nEx=g==='Beine'?(flt[g]?(s<=4?1:2):s<=3?1:s<=8?2:s<=11?3:4):(s<=4?1:s<=7?2:3);
       for(let j=0;j<nEx;j++){
         let sj=j;if(g==='Arme'&&nEx===1&&!flt[g])sj=k%2;
         let opt=(slots[Math.min(sj,slots.length-1)]||[]).filter(ok);if(!opt.length)opt=[].concat(...slots).filter(ok);if(!opt.length)opt=EX[g].filter(ok);if(!opt.length)continue;
@@ -818,7 +819,7 @@ function mesoCard(){
   h+=`<div class="datenav"><button data-a="mweek" data-v="-1" ${w>1?'':'disabled'} aria-label="Woche zurück">‹</button><span class="dlab wkl"><b>Woche ${w} von ${m.weeks}</b><span class="small muted">${isDl(m,w)?'Deload · halbe Sätze · ':''}Ziel-RIR ${m.rir[w-1]}${w===cw&&!fin&&!pre?' · diese Woche':''}</span></span><button data-a="mweek" data-v="1" ${w<m.weeks?'':'disabled'} aria-label="Woche vor">›</button></div>`;
   h+=`<div class="list">`+m.days.map((d,i)=>({d,i})).sort((a,b)=>a.d.wd-b.d.wd).map(({d,i})=>{const dw=mesoDone(m,w,d.id);
     return`<div class="item" style="cursor:default">${bodyMap(exLevels(d.ex.map(x=>x.n)),'sm')}<span class="t"><b style="font-weight:600">${WD[d.wd]} · ${esc(d.name)}</b><span class="num">${dshort(addD(m.start,(w-1)*7+d.wd))} · ${d.ex.length} Übungen · ${d.ex.reduce((s,x)=>s+(isDl(m,w)?Math.ceil(x.sets/2):x.sets),0)} Sätze</span><span class="row" style="margin-top:8px">${dw?`<span class="pill good">Erledigt</span><button class="btn" data-a="wshow" data-id="${dw.id}">Ansehen</button>`:`<button class="btn primary" data-a="mstart" data-w="${w}" data-d="${i}">Start</button>`}</span></span></div>`}).join('')+`</div>`;
-  return h+`<div class="row"><button class="btn wide" data-a="medit">Plan bearbeiten</button><button class="btn wide" data-a="tinfo">So wird gerechnet</button></div></section>`;
+  return h+`<div class="row"><button class="btn wide" data-a="medit">Plan bearbeiten</button><button class="btn wide" data-a="gen">Neu generieren</button></div><button class="navbtn" data-a="tinfo">So wird gerechnet</button></section>`;
 }
 function workoutHead(aw,focus){
   const t=targetRir(aw),m=aw.ms&&meso()&&meso().id===aw.ms.id?meso():null;
@@ -1088,7 +1089,7 @@ function finishSet(w,x,z,wv,rv,rir){
   else if(rir<=t-2)toast('Schwerer als geplant. Der nächste Satz wird leichter angesetzt.');
   else if(rir>=t+2)toast('Leichter als geplant. Der nächste Satz wird angepasst.');
 }
-function genDefaults(){const m=meso(),c=m&&m.cfg;return Object.assign({level:'mid',wds:S.settings.trainDays.length>=2?S.settings.trainDays.slice():[0,2,4],minutes:60,focus:[],equip:'gym',weeks:5,deload:true,min:8,max:12,avoid:[]},c?clone(c):{},{step:0,out:null,when:wd(today())>2?1:0})}
+function genDefaults(){const m=meso(),c=m&&m.cfg;return Object.assign({level:'mid',wds:S.settings.trainDays.length>=2?S.settings.trainDays.slice():[0,2,4],minutes:60,focus:[],equip:'gym',weeks:5,deload:true,min:8,max:12,avoid:[],split3:'gk'},c?clone(c):{},{step:0,out:null,when:wd(today())>2?1:0})}
 function archiveMeso(m,fb){const st=mesoStats(m);(S.plans.mesoHist=S.plans.mesoHist||[]).push({name:m.name,start:m.start,weeks:m.weeks,done:st.done,planned:st.planned,fb,at:today()})}
 /* Nächster Zyklus aus dem Feedback: Sätze je Übung anpassen, Übungen tauschen, RIR-Verlauf neu starten */
 function nextMeso(){
@@ -1134,7 +1135,7 @@ const GSTEP=['Erfahrung','Trainingstage','Zeit pro Einheit','Schwerpunkt','Ausst
 const opt=(k,v,on,title,sub)=>`<button class="opt${on?' on':''}" data-a="gset" data-k="${k}" data-v="${v}" aria-pressed="${on}"><b>${title}</b>${sub?`<span>${sub}</span>`:''}</button>`;
 function drawGen(){const g=ui.gen,s=g.step;let b='';
   if(s===0)b=`<p class="small muted">Dein Trainingsstand bestimmt das Wochenvolumen. Wer länger trainiert, braucht mehr Sätze für denselben Reiz.</p>`+Object.keys(LVL).map(k=>opt('level',k,g.level===k,LVL[k][0],LVL[k][1]+'. Ausgangswert: rund '+LVL[k][2]+' Sätze pro großer Muskelgruppe und Woche.')).join('');
-  else if(s===1)b=`<p class="small muted">An welchen Tagen willst du trainieren? Zwei bis sechs Tage.</p><div class="chips">${WD.map((w,i)=>`<button class="${g.wds.includes(i)?'on':''}" data-a="gwd" data-v="${i}" aria-pressed="${g.wds.includes(i)}">${w}</button>`).join('')}</div><p class="hint">Bei gleichem Wochenvolumen spielt die Häufigkeit eine Nebenrolle. Die Aufteilung folgt deshalb deinen Tagen: 2–3 Tage Ganzkörper, 4 Tage Ober- und Unterkörper, 5–6 Tage mit Push, Pull und Beinen.</p>`;
+  else if(s===1)b=`<p class="small muted">An welchen Tagen willst du trainieren? Zwei bis sechs Tage.</p><div class="chips">${WD.map((w,i)=>`<button class="${g.wds.includes(i)?'on':''}" data-a="gwd" data-v="${i}" aria-pressed="${g.wds.includes(i)}">${w}</button>`).join('')}</div>${g.wds.length===3?`<p class="small muted">Bei drei Tagen kannst du die Aufteilung wählen.</p>`+opt('split3','gk',g.split3!=='ppg','Dreimal Ganzkörper','Jeder Muskel dreimal pro Woche. Fällt ein Tag aus, fehlt nirgends eine ganze Muskelgruppe.')+opt('split3','ppg',g.split3==='ppg','Push, Pull, Ganzkörper','Brust, Schultern und Trizeps am Push-Tag, Rücken und Bizeps am Pull-Tag, alles noch einmal am Ganzkörpertag. Beine sind verteilt: Kniebeuge-Übung am Push-Tag, Beinbeuger am Pull-Tag. So kommt jeder Muskel zweimal dran.'):''}<p class="hint">Bei gleichem Wochenvolumen spielt die Häufigkeit eine Nebenrolle. Die Aufteilung folgt deshalb deinen Tagen: 2 Tage Ganzkörper, 4 Tage Ober- und Unterkörper, 5–6 Tage mit Push, Pull und Beinen.</p>`;
   else if(s===2)b=`<p class="small muted">Wie lange darf eine Einheit dauern, Aufwärmen eingerechnet?</p>`+[30,45,60,75,90].map(m=>opt('minutes',m,g.minutes===m,m+' Minuten','Platz für etwa '+setCap(m)+' Sätze bei '+(S.settings.rest||120)+' Sekunden Pause.')).join('')+`<p class="hint">Reicht die Zeit nicht für das Zielvolumen, kürzt der Generator gleichmäßig und sagt es in der Vorschau.</p>`;
   else if(s===3)b=`<p class="small muted">Sollen bis zu zwei Bereiche mehr Volumen bekommen? Ohne Auswahl wird ausgewogen geplant.</p><div class="chips">${GROUPS.filter(x=>x!=='Rumpf').map(x=>`<button class="${g.focus.includes(x)?'on':''}" data-a="gfocus" data-v="${x}" aria-pressed="${g.focus.includes(x)}">${x}</button>`).join('')}</div>`;
   else if(s===4)b=opt('equip','gym',g.equip==='gym','Fitnessstudio','Langhantel, Kabelzug und Maschinen sind vorhanden.')+opt('equip','home',g.equip==='home','Kurzhanteln und Bank','Zu Hause oder kleines Studio, dazu eine Klimmzugstange.');
@@ -1144,7 +1145,7 @@ function drawGen(){const g=ui.gen,s=g.step;let b='';
     <div class="grid2"><label>Wiederholungen von<input id="gMin" inputmode="numeric" value="${g.min}" data-i="grep" data-k="min"></label><label>bis<input id="gMax" inputmode="numeric" value="${g.max}" data-i="grep" data-k="max"></label></div>
     <label>Start<select id="gWhen" data-c="gwhen"><option value="0"${g.when?'':' selected'}>Diese Woche (ab ${dshort(weekStart(today()))})</option><option value="1"${g.when?' selected':''}>Nächste Woche (ab ${dshort(addD(weekStart(today()),7))})</option></select></label>`;
   else{const o=g.out=genMeso(g);
-    b=o.notes.map(n=>`<p class="small"><span class="pill warn">Hinweis</span> ${esc(n)}</p>`).join('')+`<p class="small muted">${g.weeks} Trainingswochen${g.deload?' und eine Deload-Woche':''}, ${g.min}–${g.max} Wiederholungen. Jeden Tag kannst du danach unter „Plan bearbeiten“ ändern.</p><p>${rirRow(rirPlan(g.weeks,g.deload))}</p>`+dayCards(o.days,false)+volTable(o.days)}
+    b=(meso()?`<p class="small"><span class="pill warn">Achtung</span> Der neue Plan ersetzt „${esc(meso().name)}“. Bereits eingetragene Trainings bleiben im Verlauf.</p>`:'')+o.notes.map(n=>`<p class="small"><span class="pill warn">Hinweis</span> ${esc(n)}</p>`).join('')+`<p class="small muted">${g.weeks} Trainingswochen${g.deload?' und eine Deload-Woche':''}, ${g.min}–${g.max} Wiederholungen. Jeden Tag kannst du danach unter „Plan bearbeiten“ ändern.</p><p>${rirRow(rirPlan(g.weeks,g.deload))}</p>`+dayCards(o.days,false)+volTable(o.days)}
   openSheet(`<div class="chead"><h2>${GSTEP[s]}</h2><button class="navbtn" data-a="close">Abbrechen</button></div><p class="small muted" style="text-align:center">Schritt ${s+1} von ${GSTEP.length}</p>${b}
   <div class="row"><button class="btn wide" data-a="gback" ${s?'':'disabled'}>Zurück</button><button class="btn primary wide" data-a="${s===GSTEP.length-1?'gapply':'gnext'}">${s===GSTEP.length-1?'Plan übernehmen':'Weiter'}</button></div>`)}
 function mesoWorkouts(m){return allW().filter(w=>w.e&&w.ms&&w.ms.id===m.id)}
@@ -1273,7 +1274,7 @@ const A={
   gback:()=>{ui.gen.step--;drawGen()},
   gapply:()=>{const g=ui.gen,old=meso();if(old&&mesoWorkouts(old).length)archiveMeso(old,null);
     S.plans.meso={id:newId('m'),name:'Mesozyklus '+((S.plans.mesoHist||[]).length+1),start:addD(weekStart(today()),g.when?7:0),tw:g.weeks,deload:g.deload,weeks:g.weeks+(g.deload?1:0),rir:rirPlan(g.weeks,g.deload),
-      days:g.out.days.map(d=>Object.assign({id:newId('d')},d)),cfg:{level:g.level,wds:g.wds.slice().sort((a,b)=>a-b),minutes:g.minutes,focus:g.focus.slice(),equip:g.equip,weeks:g.weeks,deload:g.deload,min:g.min,max:g.max,avoid:g.avoid.slice()}};
+      days:g.out.days.map(d=>Object.assign({id:newId('d')},d)),cfg:{level:g.level,wds:g.wds.slice().sort((a,b)=>a-b),minutes:g.minutes,focus:g.focus.slice(),equip:g.equip,weeks:g.weeks,deload:g.deload,min:g.min,max:g.max,avoid:g.avoid.slice(),split3:g.split3||'gk'}};
     S.settings.trainDays=g.wds.slice().sort((a,b)=>a-b);Store.save('plans');Store.save('settings');ui.mw=null;closeSheet();render();toast('Plan angelegt')},
   medit:()=>{ui.me=clone(meso());if(ui.me.tw==null)ui.me.tw=ui.me.weeks-(ui.me.deload?1:0);drawMeso()},
   mday:el=>{ui.pe=Object.assign({kind:'day',idx:+el.dataset.d},clone(ui.me.days[+el.dataset.d]));drawPlan()},
